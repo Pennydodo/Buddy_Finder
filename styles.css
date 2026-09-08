@@ -628,6 +628,10 @@ input[type=text]::placeholder { color: var(--text-faint); }
   font-weight: 700;
   white-space: nowrap;
   color: var(--text);
+  /* A long name would otherwise stretch this pill across the whole map. */
+  max-width: 116px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .marker-wrap[data-stale="true"] { opacity: .45; }
 .marker-wrap[data-focused="true"] .marker-pin { outline: 3px solid var(--amber); outline-offset: 2px; }

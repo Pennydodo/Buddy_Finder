@@ -111,6 +111,13 @@ function boot() {
     syncRows();
   });
 
+  // Drive the inputs from the same constant the trimming uses, so the two
+  // can never drift apart.
+  for (const id of ["in-name", "in-name-2"]) {
+    const el = $(id);
+    if (el) el.maxLength = TUNING.maxNameLength;
+  }
+
   wireWelcome();
   wireMain();
   wireSheets();
@@ -220,7 +227,7 @@ function showJoinError(msg) {
 }
 
 function takeName() {
-  const name = ($("in-name").value || "").trim().slice(0, 14);
+  const name = ($("in-name").value || "").trim().slice(0, TUNING.maxNameLength);
   if (!name) {
     $("in-name").focus();
     showJoinError("Pick a name first, so your crew knows which dot is you.");
@@ -917,7 +924,7 @@ function wireSheets() {
   });
 
   $("in-name-2").addEventListener("input", (e) => {
-    state.profile.name = e.target.value.trim().slice(0, 14);
+    state.profile.name = e.target.value.trim().slice(0, TUNING.maxNameLength);
     writeJSON(LS.profile, state.profile);
     syncRows();
   });

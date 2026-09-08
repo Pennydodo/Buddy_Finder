@@ -43,6 +43,9 @@ export const TUNING = {
   gpsHeadingMinSpeed: 1.0,
   /** Assumed walking pace for the "x min" estimate (m/s). Festival crowds are slow. */
   walkSpeed: 1.15,
+  /** Longest display name someone can pick. Longer names still fit the list
+   *  rows and map labels, which ellipsize, but the pill gets wide. */
+  maxNameLength: 24,
   /** Zoom levels saved either side of the current one by "save this area". */
   prefetchZoomSpread: 1,
   /** Hard ceiling on tiles fetched in one "save this area" run. */
