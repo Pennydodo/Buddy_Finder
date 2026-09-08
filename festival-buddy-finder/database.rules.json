@@ -1,0 +1,38 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "crews": {
+      "$crewId": {
+        ".validate": "$crewId.length === 24",
+
+        "m": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['iv','ct','t'])",
+            "iv": { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "ct": { ".validate": "newData.isString() && newData.val().length <= 2048" },
+            "t":  { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "p": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['iv','ct','t'])",
+            "iv": { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "ct": { ".validate": "newData.isString() && newData.val().length <= 2048" },
+            "t":  { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

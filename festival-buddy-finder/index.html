@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Buddy Finder</title>
+<meta name="description" content="Find your friends at a festival. End-to-end encrypted live location and compass navigation.">
+<meta name="theme-color" content="#0a0c10">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Buddies">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ================= BOOT =================
+     Visible by default. Every other screen starts hidden and is revealed by
+     JavaScript, so without this a failed module load leaves a blank page and
+     no clue why. app.js hides this as soon as it runs.
+     ========================================================================= -->
+<section id="screen-boot" class="screen">
+  <div class="pane">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 L86 88 L50 68 L14 88 Z" fill="currentColor"/></svg>
+      <h1 class="title">Buddy Finder</h1>
+    </div>
+    <p class="lede" id="boot-msg">Starting&hellip;</p>
+    <pre id="boot-detail" class="boot-detail" hidden></pre>
+    <p class="note" id="boot-hint" hidden>
+      Every file has to sit at the same paths as on your computer. Check that
+      <code>js/</code> and <code>icons/</code> made it into the repository and that
+      <code>index.html</code> is at the top level, not inside another folder.
+    </p>
+  </div>
+</section>
+
+<noscript>
+  <div class="pane">
+    <h1 class="title">JavaScript is off</h1>
+    <p class="lede">This app is entirely JavaScript &mdash; there is no server to fall back on. Turn it on for this site and reload.</p>
+  </div>
+</noscript>
+
+<script>
+/* Classic (non-module) script, so it runs even if the module graph dies. */
+(function () {
+  var failed = [];
+  function booting() {
+    var b = document.getElementById("screen-boot");
+    return b && !b.hidden;
+  }
+  var probed = false;
+
+  /* A failed module only reports the entry script, never the file inside the
+     graph that actually 404'd — so go and ask for each one by name. */
+  function probe() {
+    if (probed) return;
+    probed = true;
+    var files = [
+      "js/app.js", "js/config.js", "js/crypto.js", "js/geo.js",
+      "js/compass.js", "js/map.js", "js/transport.js",
+      "styles.css", "manifest.webmanifest", "icons/icon-192.png"
+    ];
+    var lines = [];
+    var done = 0;
+    files.forEach(function (f) {
+      var finish = function (label, ok) {
+        lines.push({ label: label, ok: ok, file: f });
+        if (++done !== files.length) return;
+        lines.sort(function (a, b) { return (a.ok - b.ok) || a.file.localeCompare(b.file); });
+        document.getElementById("boot-detail").innerHTML = lines.map(function (l) {
+          return '<span class="' + (l.ok ? "bl-ok" : "bl-bad") + '">' + l.label + "</span>  " + l.file;
+        }).join("\n");
+      };
+      fetch(f, { cache: "no-store" })
+        .then(function (r) { finish(r.ok ? "  ok" : " " + r.status, r.ok); })
+        .catch(function () { finish("fail", false); });
+    });
+  }
+
+  function report(what) {
+    if (!booting()) return;
+    if (failed.indexOf(what) === -1) failed.push(what);
+    var msg = document.getElementById("boot-msg");
+    var detail = document.getElementById("boot-detail");
+    var hint = document.getElementById("boot-hint");
+    if (!msg) return;
+    msg.textContent = "The app couldn't start. Checking which files are reachable:";
+    detail.hidden = false;
+    hint.hidden = false;
+    detail.textContent = "checking…";
+    probe();
+  }
+  window.addEventListener("error", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "SCRIPT" || t.tagName === "LINK")) report(t.src || t.href || "unknown file");
+    else if (e.message) report(e.message);
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    report(String((e.reason && e.reason.message) || e.reason || "unknown error"));
+  });
+  setTimeout(function () {
+    if (booting() && failed.length === 0) report("Timed out waiting for js/app.js");
+  }, 12000);
+})();
+</script>
+
+<!-- ================= SETUP GATE (shown when config.js is untouched) ================= -->
+<section id="screen-setup" class="screen" hidden>
+  <div class="pane">
+    <h1 class="title">Almost there</h1>
+    <p class="lede">This app needs your own free Firebase project to relay positions between phones. It takes about five minutes, once, and then it is yours forever.</p>
+    <ol class="steps">
+      <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> and create a project. Turn Google&nbsp;Analytics off.</li>
+      <li>Build &rarr; <b>Realtime Database</b> &rarr; Create database &rarr; pick the region closest to the festival &rarr; start in <b>locked mode</b>.</li>
+      <li>Build &rarr; <b>Authentication</b> &rarr; Get started &rarr; Sign-in method &rarr; enable <b>Anonymous</b>.</li>
+      <li>Project settings (gear) &rarr; Your apps &rarr; <b>Web</b> (<code>&lt;/&gt;</code>) &rarr; register &rarr; copy the <code>firebaseConfig</code> object.</li>
+      <li>Paste it into <code>js/config.js</code>, replacing the placeholder.</li>
+      <li>Realtime Database &rarr; <b>Rules</b> tab &rarr; paste the contents of <code>database.rules.json</code> &rarr; Publish.</li>
+    </ol>
+    <p class="note">The full walkthrough, with the exact rules, is in <code>README.md</code>.</p>
+  </div>
+</section>
+
+<!-- ================= WELCOME ================= -->
+<section id="screen-welcome" class="screen" hidden>
+  <div class="pane">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 L86 88 L50 68 L14 88 Z" fill="currentColor"/></svg>
+      <h1 class="title">Buddy Finder</h1>
+    </div>
+    <p class="lede">Live location and a compass arrow for you and your crew. Encrypted end to end &mdash; nobody outside your crew can read a position, not even the server.</p>
+
+    <div class="field">
+      <label for="in-name">Your name</label>
+      <input id="in-name" type="text" maxlength="14" autocomplete="nickname" placeholder="e.g. Alex" enterkeyhint="done">
+    </div>
+
+    <div class="field">
+      <label>Your marker</label>
+      <div class="marker-picker">
+        <div id="emoji-row" class="chip-row" role="radiogroup" aria-label="Emoji"></div>
+        <div id="color-row" class="chip-row" role="radiogroup" aria-label="Colour"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btn-create" class="btn btn-primary">Start a new crew</button>
+      <div class="or"><span>or</span></div>
+      <div class="join-row">
+        <input id="in-code" type="text" inputmode="text" autocapitalize="characters" autocomplete="off"
+               spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" aria-label="Crew code" enterkeyhint="go">
+        <button id="btn-join" class="btn">Join</button>
+      </div>
+      <p id="join-error" class="error" hidden></p>
+    </div>
+
+    <p class="note">Someone sent you a crew link? Just open it &mdash; the code fills itself in.</p>
+  </div>
+</section>
+
+<!-- ================= MAIN ================= -->
+<section id="screen-main" class="screen screen-main" hidden>
+
+  <header class="topbar">
+    <button id="btn-back-home" class="icon-btn" aria-label="Leave crew" title="Leave crew">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l-6 6 6 6M3 12h13a5 5 0 0 0 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="topbar-mid">
+      <div class="crew-line">
+        <span id="net-dot" class="dot" data-state="connecting" aria-hidden="true"></span>
+        <span id="crew-label">Crew</span>
+      </div>
+      <div id="net-label" class="sub">connecting&hellip;</div>
+    </div>
+    <button id="btn-share" class="icon-btn" aria-label="Invite friends" title="Invite friends">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button id="btn-settings" class="icon-btn" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9L5.3 5.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <div id="map" role="application" aria-label="Map of your crew"></div>
+
+  <div class="map-tools">
+    <button id="btn-recenter" class="map-btn" aria-label="Centre on me" title="Centre on me">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.4" fill="currentColor"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button id="btn-fit" class="map-btn" aria-label="Fit whole crew" title="Fit whole crew">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="btn-layer" class="map-btn" aria-label="Switch map style" title="Switch map style">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div id="splitter" class="splitter" role="separator" aria-label="Resize map" aria-orientation="horizontal" tabindex="0">
+    <span class="grip"></span>
+  </div>
+
+  <!-- bottom half: list -->
+  <div id="lower" class="lower">
+
+    <div id="view-list" class="view">
+      <div id="buddy-list" class="buddy-list"></div>
+      <div id="list-empty" class="empty" hidden>
+        <p class="empty-title">Nobody else here yet</p>
+        <p class="empty-sub">Tap the share icon to send your crew link.</p>
+        <button id="btn-share-2" class="btn btn-primary">Invite friends</button>
+      </div>
+      <div class="list-foot">
+        <button id="btn-pin" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" class="btn-ico" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.4" fill="currentColor"/></svg>
+          <span id="pin-btn-label">Drop a meet pin here</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- bottom half: focused compass -->
+    <div id="view-focus" class="view" hidden>
+      <div class="focus-head">
+        <button id="btn-unfocus" class="icon-btn" aria-label="Back to list">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="focus-who">
+          <span id="focus-emoji" class="focus-emoji"></span>
+          <span id="focus-name" class="focus-name"></span>
+        </div>
+        <div id="focus-fresh" class="pill">now</div>
+      </div>
+
+      <div class="compass">
+        <svg id="arrow" viewBox="-50 -50 100 100" class="arrow" aria-hidden="true">
+          <circle class="ring" cx="0" cy="0" r="45"/>
+          <g id="arrow-rot">
+            <path class="arrow-body" d="M0 -36 L26 32 L0 16 L-26 32 Z"/>
+          </g>
+        </svg>
+        <div class="readout">
+          <div id="focus-dist" class="dist">&mdash;</div>
+          <div id="focus-eta" class="eta"></div>
+        </div>
+      </div>
+
+      <div id="focus-warn" class="warn" hidden></div>
+      <div class="focus-foot">
+        <span id="focus-src" class="src"></span>
+        <span id="focus-acc" class="src"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SHEETS ================= -->
+<div id="scrim" class="scrim" hidden></div>
+
+<div id="sheet-share" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="share-title">
+  <div class="sheet-grab"></div>
+  <h2 id="share-title" class="sheet-title">Invite your crew</h2>
+  <p class="sheet-sub">Anyone with this link can see where your crew is. Send it in the group chat, and don't post it anywhere public.</p>
+  <div class="qr-wrap"><canvas id="qr" width="240" height="240" aria-label="QR code for the crew link"></canvas></div>
+  <div class="code-box">
+    <div class="code-label">Crew code</div>
+    <div id="code-text" class="code-text">&mdash;</div>
+  </div>
+  <div class="sheet-actions">
+    <button id="btn-copy-link" class="btn btn-primary">Copy link</button>
+    <button id="btn-native-share" class="btn">Share&hellip;</button>
+  </div>
+  <button class="btn btn-ghost sheet-close">Done</button>
+</div>
+
+<div id="sheet-settings" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="sheet-grab"></div>
+  <h2 id="set-title" class="sheet-title">Settings</h2>
+
+  <div class="field">
+    <label for="in-name-2">Name</label>
+    <input id="in-name-2" type="text" maxlength="14" autocomplete="nickname">
+  </div>
+  <div class="field">
+    <label>Marker</label>
+    <div class="marker-picker">
+      <div id="emoji-row-2" class="chip-row" role="radiogroup" aria-label="Emoji"></div>
+      <div id="color-row-2" class="chip-row" role="radiogroup" aria-label="Colour"></div>
+    </div>
+  </div>
+
+  <label class="toggle">
+    <input id="tg-wake" type="checkbox">
+    <span class="toggle-body"><span class="knob"></span></span>
+    <span class="toggle-text"><b>Keep the screen awake</b><small>The browser stops GPS when the screen locks. This holds it on while the app is open.</small></span>
+  </label>
+
+  <label class="toggle">
+    <input id="tg-hiacc" type="checkbox" checked>
+    <span class="toggle-body"><span class="knob"></span></span>
+    <span class="toggle-text"><b>High-accuracy GPS</b><small>A much better fix in a crowd, noticeably more battery.</small></span>
+  </label>
+
+  <div class="field">
+    <button id="btn-prefetch" class="btn">Save this map area for offline</button>
+    <p id="prefetch-status" class="note">Do this on the campsite wifi, before you lose signal.</p>
+  </div>
+
+  <div class="field">
+    <button id="btn-compass-perm" class="btn" hidden>Enable compass</button>
+  </div>
+
+  <div class="danger">
+    <button id="btn-leave" class="btn btn-danger">Leave crew &amp; wipe my position</button>
+  </div>
+  <button class="btn btn-ghost sheet-close">Done</button>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
