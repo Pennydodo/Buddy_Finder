@@ -19,6 +19,98 @@
 </head>
 <body>
 
+<!-- ================= BOOT =================
+     Visible by default. Every other screen starts hidden and is revealed by
+     JavaScript, so without this a failed module load leaves a blank page and
+     no clue why. app.js hides this as soon as it runs.
+     ========================================================================= -->
+<section id="screen-boot" class="screen">
+  <div class="pane">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 L86 88 L50 68 L14 88 Z" fill="currentColor"/></svg>
+      <h1 class="title">Buddy Finder</h1>
+    </div>
+    <p class="lede" id="boot-msg">Starting&hellip;</p>
+    <pre id="boot-detail" class="boot-detail" hidden></pre>
+    <p class="note" id="boot-hint" hidden>
+      Every file has to sit at the same paths as on your computer. Check that
+      <code>js/</code> and <code>icons/</code> made it into the repository and that
+      <code>index.html</code> is at the top level, not inside another folder.
+    </p>
+  </div>
+</section>
+
+<noscript>
+  <div class="pane">
+    <h1 class="title">JavaScript is off</h1>
+    <p class="lede">This app is entirely JavaScript &mdash; there is no server to fall back on. Turn it on for this site and reload.</p>
+  </div>
+</noscript>
+
+<script>
+/* Classic (non-module) script, so it runs even if the module graph dies. */
+(function () {
+  var failed = [];
+  function booting() {
+    var b = document.getElementById("screen-boot");
+    return b && !b.hidden;
+  }
+  var probed = false;
+
+  /* A failed module only reports the entry script, never the file inside the
+     graph that actually 404'd — so go and ask for each one by name. */
+  function probe() {
+    if (probed) return;
+    probed = true;
+    var files = [
+      "js/app.js", "js/config.js", "js/crypto.js", "js/geo.js",
+      "js/compass.js", "js/map.js", "js/transport.js",
+      "styles.css", "manifest.webmanifest", "icons/icon-192.png"
+    ];
+    var lines = [];
+    var done = 0;
+    files.forEach(function (f) {
+      var finish = function (label, ok) {
+        lines.push({ label: label, ok: ok, file: f });
+        if (++done !== files.length) return;
+        lines.sort(function (a, b) { return (a.ok - b.ok) || a.file.localeCompare(b.file); });
+        document.getElementById("boot-detail").innerHTML = lines.map(function (l) {
+          return '<span class="' + (l.ok ? "bl-ok" : "bl-bad") + '">' + l.label + "</span>  " + l.file;
+        }).join("\n");
+      };
+      fetch(f, { cache: "no-store" })
+        .then(function (r) { finish(r.ok ? "  ok" : " " + r.status, r.ok); })
+        .catch(function () { finish("fail", false); });
+    });
+  }
+
+  function report(what) {
+    if (!booting()) return;
+    if (failed.indexOf(what) === -1) failed.push(what);
+    var msg = document.getElementById("boot-msg");
+    var detail = document.getElementById("boot-detail");
+    var hint = document.getElementById("boot-hint");
+    if (!msg) return;
+    msg.textContent = "The app couldn't start. Checking which files are reachable:";
+    detail.hidden = false;
+    hint.hidden = false;
+    detail.textContent = "checking…";
+    probe();
+  }
+  window.addEventListener("error", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "SCRIPT" || t.tagName === "LINK")) report(t.src || t.href || "unknown file");
+    else if (e.message) report(e.message);
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    report(String((e.reason && e.reason.message) || e.reason || "unknown error"));
+  });
+  setTimeout(function () {
+    if (booting() && failed.length === 0) report("Timed out waiting for js/app.js");
+  }, 12000);
+})();
+</script>
+
 <!-- ================= SETUP GATE (shown when config.js is untouched) ================= -->
 <section id="screen-setup" class="screen" hidden>
   <div class="pane">

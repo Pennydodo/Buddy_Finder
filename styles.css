@@ -651,3 +651,20 @@ input[type=text]::placeholder { color: var(--text-faint); }
   margin-top: -30px;
   pointer-events: none;
 }
+
+/* boot / failure diagnostics */
+.boot-detail {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid #4a2226;
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.bl-ok  { color: var(--ok); }
+.bl-bad { color: var(--bad); font-weight: 700; }
